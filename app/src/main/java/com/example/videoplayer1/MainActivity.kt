@@ -9,7 +9,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var VideosId: List<Video>
+    private lateinit var VideosId: MutableList<Video>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,7 +21,7 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        VideosId = listOf(
+        VideosId = mutableListOf(
             Video("ktBMxkLUIwY"),
             Video("2OnO3UXFZdE"),
             Video("mREOvIgImmo")
