@@ -7,10 +7,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
-import androidx.lifecycle.Lifecycle
 import com.bumptech.glide.Glide
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
@@ -19,20 +19,15 @@ import org.json.JSONObject
 import java.net.URL
 import kotlin.concurrent.thread
 
-class VideosAdapter(private val mContext: Context, private val listaVideos: MutableList<Video>, private val lifecycle: Lifecycle) : ArrayAdapter<Video>(mContext, 0, listaVideos) {
+class VideosAdapter(private val mContext: Context, private val listaVideos: MutableList<Video>, private val videoPlayer: YouTubePlayer, private val videoTitle: TextView, private val videoThumbnail: ImageView) : ArrayAdapter<Video>(mContext, 0, listaVideos) {
 
     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
         val layout = convertView ?: LayoutInflater.from(mContext).inflate(R.layout.item_video, parent, false)
 
         val video = listaVideos[position]
 
-        // Agregar el ciclo de vida del YouTubePlayerView
-        lifecycle.addObserver(layout.findViewById(R.id.videoPlayer))
-
-        val youtubePlayerView = layout.findViewById<YouTubePlayerView>(R.id.videoPlayer)
-        val thumbnailUrl = "https://img.youtube.com/vi/${video.videoId}/0.jpg"
-
         // Cargar la miniatura del video
+        val thumbnailUrl = "https://img.youtube.com/vi/${video.videoId}/0.jpg"
         Glide.with(mContext).load(thumbnailUrl).into(layout.findViewById(R.id.thumbnail))
 
         // Obtener la información del video en segundo plano
@@ -45,19 +40,30 @@ class VideosAdapter(private val mContext: Context, private val listaVideos: Muta
             }
         }
 
-        // Configurar el reproductor de YouTube
-        youtubePlayerView.addYouTubePlayerListener(object : AbstractYouTubePlayerListener() {
-            override fun onReady(youTubePlayer: YouTubePlayer) {
-                youTubePlayer.cueVideo(video.videoId, 0f)
-            }
-        })
-
         layout.setOnClickListener {
+            thread {
+                val videoInfo = getYouTubeVideoInfo(video.videoId)
+
+                // Usar Handler para actualizar el UI en el hilo principal
+                Handler(Looper.getMainLooper()).post {
+                    videoTitle.text = videoInfo?.getString("title") ?: "Título no disponible"
+                }
+            }
+
+            // Cargar la miniatura del video
+            Glide.with(mContext).load(thumbnailUrl).into(videoThumbnail)
+
+            videoPlayer?.cueVideo(video.videoId, 0f)
+        }
+
+        layout.setOnLongClickListener() {
             showPopupMenu(layout, position)
+            true
         }
 
         return layout
     }
+
     // Función para obtener la información del video
     private fun getYouTubeVideoInfo(videoId: String): JSONObject? {
         return try {
@@ -83,7 +89,7 @@ class VideosAdapter(private val mContext: Context, private val listaVideos: Muta
                 }
                 R.id.action_delete -> {
                     Toast.makeText(mContext, "Eliminar video", Toast.LENGTH_SHORT).show()
-                    // Lógica de eliminación
+                    eliminarVideo(position)
                     true
                 }
                 else -> false
@@ -91,7 +97,10 @@ class VideosAdapter(private val mContext: Context, private val listaVideos: Muta
         }
         popupMenu.show()
     }
+
+    private fun eliminarVideo(position: Int) {
+        // Eliminar el elemento de la lista
+        listaVideos.removeAt(position)
+        notifyDataSetChanged()
+    }
 }
-
-
-
