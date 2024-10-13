@@ -18,9 +18,64 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTube
 import org.json.JSONObject
 import java.net.URL
 import kotlin.concurrent.thread
+import android.app.AlertDialog
+import android.widget.EditText
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 class MainActivity : AppCompatActivity() {
     private lateinit var videosId: MutableList<Video>
+    private lateinit var adapter: VideosAdapter
+    private lateinit var videoPlayer: YouTubePlayer
+    private lateinit var videoTitle: TextView
+    private lateinit var videoThumbnail: ImageView
+
+    private fun setupAddVideoButton() {
+        findViewById<FloatingActionButton>(R.id.fabAddVideo).setOnClickListener {
+            return@setOnClickListener showAddVideoDialog()
+        }
+    }
+
+    private fun showAddVideoDialog() {
+        val builder = AlertDialog.Builder(this)
+        val inflater = layoutInflater
+        val dialogLayout = inflater.inflate(R.layout.dialog_add_video, null)
+        val editText = dialogLayout.findViewById<EditText>(R.id.editTextVideoId)
+
+        builder.setView(dialogLayout)
+            .setPositiveButton("Agregar") { _, _ ->
+                val videoId = editText.text.toString()
+                if (videoId.isNotEmpty()) {
+                    addVideo(Video(videoId))
+                }
+            }
+            .setNegativeButton("Cancelar") { dialog, _ ->
+                dialog.cancel()
+            }
+
+        builder.show()
+    }
+
+    private fun addVideo(video: Video) {
+        videosId.add(video)
+        adapter.notifyDataSetChanged()
+        playVideo(video)
+    }
+
+    private fun playVideo(video: Video) {
+        videoPlayer.cueVideo(video.videoId, 0f)
+
+        // Actualizar miniatura y título
+        val thumbnailUrl = "https://img.youtube.com/vi/${video.videoId}/0.jpg"
+        Glide.with(this).load(thumbnailUrl).into(videoThumbnail)
+
+        thread {
+            val videoInfo = getYouTubeVideoInfo(video.videoId)
+            runOnUiThread {
+                videoTitle.text = videoInfo?.getString("title") ?: "Título no disponible"
+            }
+        }
+    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,10 +93,9 @@ class MainActivity : AppCompatActivity() {
             Video("mREOvIgImmo")
         )
 
-        val videoThumbnail: ImageView = findViewById(R.id.tn)
-        val videoTitle: TextView = findViewById(R.id.titulo)
+        videoThumbnail = findViewById(R.id.tn)
+        videoTitle = findViewById(R.id.titulo)
         val youTubePlayerView: YouTubePlayerView = findViewById(R.id.videoPlayer)
-        lateinit var videoPlayer: YouTubePlayer
 
         // Agregar ciclo de vida del YouTubePlayerView
         lifecycle.addObserver(youTubePlayerView)
@@ -64,12 +118,15 @@ class MainActivity : AppCompatActivity() {
                 videoPlayer = youTubePlayer
                 youTubePlayer.cueVideo(videosId[0].videoId, 0f)
 
+                // Asignar el adaptador a la lista de videos
                 val listaVideos = findViewById<ListView>(R.id.listaVideos)
-                val adapter = VideosAdapter(this@MainActivity,videosId, videoPlayer, videoTitle, videoThumbnail)
+                adapter = VideosAdapter(this@MainActivity, videosId, videoPlayer, videoTitle, videoThumbnail)
                 listaVideos.adapter = adapter
+
+                // Configurar el botón para agregar videos
+                setupAddVideoButton()
             }
         })
-
     }
     // Función para obtener la información del video
     private fun getYouTubeVideoInfo(videoId: String): JSONObject? {
@@ -83,3 +140,4 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
+

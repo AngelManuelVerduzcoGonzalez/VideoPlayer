@@ -11,15 +11,21 @@ import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
+import android.app.AlertDialog
+import android.widget.EditText
 import com.bumptech.glide.Glide
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 import org.json.JSONObject
 import java.net.URL
 import kotlin.concurrent.thread
 
-class VideosAdapter(private val mContext: Context, private val listaVideos: MutableList<Video>, private val videoPlayer: YouTubePlayer, private val videoTitle: TextView, private val videoThumbnail: ImageView) : ArrayAdapter<Video>(mContext, 0, listaVideos) {
+class VideosAdapter(
+    private val mContext: Context,
+    private val listaVideos: MutableList<Video>,
+    private val videoPlayer: YouTubePlayer,
+    private val videoTitle: TextView,
+    private val videoThumbnail: ImageView
+) : ArrayAdapter<Video>(mContext, 0, listaVideos) {
 
     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
         val layout = convertView ?: LayoutInflater.from(mContext).inflate(R.layout.item_video, parent, false)
@@ -41,27 +47,32 @@ class VideosAdapter(private val mContext: Context, private val listaVideos: Muta
         }
 
         layout.setOnClickListener {
-            thread {
-                val videoInfo = getYouTubeVideoInfo(video.videoId)
-
-                // Usar Handler para actualizar el UI en el hilo principal
-                Handler(Looper.getMainLooper()).post {
-                    videoTitle.text = videoInfo?.getString("title") ?: "Título no disponible"
-                }
-            }
-
-            // Cargar la miniatura del video
-            Glide.with(mContext).load(thumbnailUrl).into(videoThumbnail)
-
-            videoPlayer?.cueVideo(video.videoId, 0f)
+            playVideo(video)
         }
 
-        layout.setOnLongClickListener() {
+        layout.setOnLongClickListener {
             showPopupMenu(layout, position)
             true
         }
 
         return layout
+    }
+
+    private fun playVideo(video: Video) {
+        thread {
+            val videoInfo = getYouTubeVideoInfo(video.videoId)
+
+            // Usar Handler para actualizar el UI en el hilo principal
+            Handler(Looper.getMainLooper()).post {
+                videoTitle.text = videoInfo?.getString("title") ?: "Título no disponible"
+            }
+        }
+
+        // Cargar la miniatura del video
+        val thumbnailUrl = "https://img.youtube.com/vi/${video.videoId}/0.jpg"
+        Glide.with(mContext).load(thumbnailUrl).into(videoThumbnail)
+
+        videoPlayer.cueVideo(video.videoId, 0f)
     }
 
     // Función para obtener la información del video
@@ -83,12 +94,10 @@ class VideosAdapter(private val mContext: Context, private val listaVideos: Muta
         popupMenu.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_update -> {
-                    Toast.makeText(mContext, "Actualizar video", Toast.LENGTH_SHORT).show()
-                    // Lógica de actualización
+                    showUpdateDialog(position)
                     true
                 }
                 R.id.action_delete -> {
-                    Toast.makeText(mContext, "Eliminar video", Toast.LENGTH_SHORT).show()
                     eliminarVideo(position)
                     true
                 }
@@ -98,9 +107,36 @@ class VideosAdapter(private val mContext: Context, private val listaVideos: Muta
         popupMenu.show()
     }
 
+    private fun showUpdateDialog(position: Int) {
+        val builder = AlertDialog.Builder(mContext)
+        val inflater = LayoutInflater.from(mContext)
+        val dialogLayout = inflater.inflate(R.layout.dialog_update_video, null)
+        val editText = dialogLayout.findViewById<EditText>(R.id.editTextNewVideoId)
+
+        builder.setView(dialogLayout)
+            .setPositiveButton("Actualizar") { _, _ ->
+                val newVideoId = editText.text.toString()
+                if (newVideoId.isNotEmpty()) {
+                    updateVideo(position, newVideoId)
+                }
+            }
+            .setNegativeButton("Cancelar") { dialog, _ ->
+                dialog.cancel()
+            }
+
+        builder.show()
+    }
+
+    private fun updateVideo(position: Int, newVideoId: String) {
+        listaVideos[position] = Video(newVideoId)
+        notifyDataSetChanged()
+        Toast.makeText(mContext, "Video actualizado", Toast.LENGTH_SHORT).show()
+        playVideo(listaVideos[position])
+    }
+
     private fun eliminarVideo(position: Int) {
-        // Eliminar el elemento de la lista
         listaVideos.removeAt(position)
         notifyDataSetChanged()
+        Toast.makeText(mContext, "Video eliminado", Toast.LENGTH_SHORT).show()
     }
 }
