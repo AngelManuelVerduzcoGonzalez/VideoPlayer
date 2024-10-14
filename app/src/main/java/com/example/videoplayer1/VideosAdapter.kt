@@ -130,13 +130,15 @@ class VideosAdapter(
     private fun updateVideo(position: Int, newVideoId: String) {
         listaVideos[position] = Video(newVideoId)
         notifyDataSetChanged()
+        (mContext as MainActivity).updateVideo(position, newVideoId) // Llama a la función de MainActivity
         Toast.makeText(mContext, "Video actualizado", Toast.LENGTH_SHORT).show()
-        playVideo(listaVideos[position])
     }
 
     private fun eliminarVideo(position: Int) {
+        val video = listaVideos[position]
         listaVideos.removeAt(position)
         notifyDataSetChanged()
+        (mContext as MainActivity).deleteVideo(video) // Llama a la función de MainActivity
         Toast.makeText(mContext, "Video eliminado", Toast.LENGTH_SHORT).show()
     }
 }
